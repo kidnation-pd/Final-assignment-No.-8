@@ -1,0 +1,92 @@
+x-airflow-common: &airflow-common
+  build: ./airflow
+  env_file:
+    - .env
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/data:/opt/airflow/data
+  depends_on:
+    - postgres
+  networks:
+    - data_net
+
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - data_net
+
+  airflow-init:
+    <<: *airflow-common
+    command: >
+      bash -c "
+      airflow db migrate &&
+      airflow users create --username admin --password admin --firstname admin --lastname admin --role Admin --email admin@example.com
+      "
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    platform: linux/arm64
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_DB: default
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./spark/jars:/opt/spark/jars
+    networks:
+      - data_net
+
+  spark:
+    image: apache/spark:3.5.1
+    platform: linux/arm64
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.master.Master
+    ports:
+      - "7077:7077"
+      - "8081:8080"
+    networks:
+      - data_net
+
+  spark-worker:
+    image: apache/spark:3.5.1
+    platform: linux/arm64
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.worker.Worker
+      spark://spark:7077
+    depends_on:
+      - spark
+    networks:
+      - data_net
+
+volumes:
+  postgres_data:
+  clickhouse_data:
+
+networks:
+  data_net:
