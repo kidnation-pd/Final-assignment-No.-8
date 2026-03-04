@@ -28,6 +28,12 @@ ID объекта          (например, 590707)
 docker compose build --no-cache
 docker compose up -d 
 ```
+Airflow
+```
+http://localhost:8080
+loign: admin
+password: admin
+```
 ✅Загрузите файл данных в DataFrame PySpark. Обязательно выведите количество строк.
 
 ✅Убедитесь, что данные корректно прочитаны (правильный формат, отсутствие пустых строк).
